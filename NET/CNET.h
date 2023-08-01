@@ -43,7 +43,16 @@ namespace NET
             NET::Request request;
             request.method = METHOD::GET;
             memcpy(&request.path, path, 256);
-            request.SetBody("Hello, World!");
+
+            socket.Send(request);
+        }
+
+        void POST(const char path[256], std::string body)
+        {
+            NET::Request request;
+            request.method = METHOD::GET;
+            memcpy(&request.path, path, 256);
+            request.SetBody(body);
 
             socket.Send(request);
         }
