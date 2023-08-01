@@ -1,44 +1,56 @@
 #ifndef NET_CNET_H_
 #define NET_CNET_H_
 
-#include <string_view>
-#include <memory>
-
-#include "Paramount.h"
+#include "Paramout.h"
 
 namespace NET
 {
     class CNET
     {
     public:
-        CNET(std::string_view ip, uint16_t port)
+        CNET() {}
+
+        CNET(const char *ip, uint16_t port)
         {
-            socket = std::make_unique<CSocket>(ip, port);
+            Init(ip, port);
         }
 
-        //
-        // Network Methods
-        //
-
-        void GET(const char *path)
+        bool Init(const char *ip, uint16_t port)
         {
+            if (is_init)
+                return false;
+
+            if (socket.Init(ip, port))
+            {
+                return true;
+                // throw std::runtime_error("[CNET] Failed to init socket\n");
+            }
+
+            socket.Connect();
+
+            is_init = true;
+
+            return false;
         }
 
-        void POST(const char *path, std::string body)
+        bool IsInit()
         {
+            return is_init;
         }
 
-        void DELETE(const char *path)
+        void GET(const char path[256])
         {
-        }
+            NET::Request request;
+            request.method = METHOD::GET;
+            memcpy(&request.path, path, 256);
+            request.SetBody("Hello, World!");
 
-        void UPDATE(const char *path, std::string body)
-        {
+            socket.Send(request);
         }
 
     private:
-        std::unique_ptr<CSocket> socket;
-        std::string_view ip;
+        bool is_init{};
+        CSocket socket{};
     };
 }
 
