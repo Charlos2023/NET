@@ -15,6 +15,8 @@ namespace NET
             Init(ip, port);
         }
 
+        CNET(const CNET &) = delete;
+
         bool Init(const char *ip, uint16_t port)
         {
             if (is_init)

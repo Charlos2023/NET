@@ -15,6 +15,8 @@ namespace NET
             Init(bind_ip, bind_port);
         }
 
+        SNET(const SNET &) = delete;
+
         bool Init(const char *bind_ip, uint16_t bind_port)
         {
             if (is_init)

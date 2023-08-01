@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <stdexcept>
+#include <functional>
 #include <cerrno>
 
 #include <sys/socket.h>
@@ -12,7 +13,7 @@
 
 namespace NET
 {
-    enum METHOD
+    enum class METHOD : std::uint8_t
     {
         GET,
         POST,
@@ -20,7 +21,7 @@ namespace NET
         DELETE
     };
 
-    enum CODE
+    enum class CODE : std::uint8_t
     {
         OK,
         NOT_FOUND,
@@ -32,7 +33,7 @@ namespace NET
     {
         std::uint8_t magic[3]{'N', 'E', 'T'};
         std::uint8_t method{};
-        std::uint8_t path[256];
+        std::uint8_t path[256]{};
         size_t auth_size{};
         size_t body_size{};
         std::unique_ptr<std::uint8_t *> auth;
@@ -229,8 +230,17 @@ namespace NET
                         p_request->body = std::make_unique<std::uint8_t *>(new std::uint8_t[p_request->body_size]);
                         count = read(socket, p_request->body.get(), p_request->body_size);
                     }
+
+                    Handler(p_request);
                 }
+                else
+                    send(socket, "INVALID", 8, 0);
             }
+        }
+
+        void Handler(std::shared_ptr<NET::Request> &p_request)
+        {
+            printf("Received request\n");
         }
     };
 }
