@@ -7,9 +7,19 @@
 #include <functional>
 #include <cerrno>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <iphlpapi.h>
+#include <windows.h>
+#pragma comment(lib, "Ws2_32.lib")
+#define read recv
+typedef SSIZE_T ssize_t;
+#else
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#endif
 
 namespace NET
 {
@@ -18,7 +28,7 @@ namespace NET
         GET,
         POST,
         UPDATE,
-        DELETE
+        DEL
     };
 
     enum class CODE : std::uint8_t
@@ -65,21 +75,6 @@ namespace NET
             // Copy all other than auth & body
             memcpy(p_request.get(), request, static_request_size);
 
-            /*
-             * Keep commented, prototype code
-                        if (p_request->auth_size != 0)
-                        {
-                            p_request->auth = std::make_unique<std::uint8_t *>(new std::uint8_t[p_request->auth_size]);
-                            memcpy(p_request->auth.get(), request + static_request_size, p_request->auth_size);
-                        }
-
-                        if (p_request->body_size != 0)
-                        {
-                            p_request->body = std::make_unique<std::uint8_t *>(new std::uint8_t[p_request->body_size]);
-                            memcpy(p_request->body.get(), request + static_request_size + p_request->auth_size, p_request->body_size);
-                        }
-            */
-
             return std::move(p_request);
         }
 
@@ -116,10 +111,22 @@ namespace NET
             Init(ip, port);
         }
 
+        ~Socket()
+        {
+#ifdef _WIN32
+            WSACleanup();
+#endif
+        }
+
         bool Init(const char *ip, uint16_t port)
         {
             if (is_init)
                 return false;
+
+#ifdef _WIN32
+            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+                return true;
+#endif
 
             if ((file_descriptor = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
             {
@@ -159,6 +166,10 @@ namespace NET
         bool is_init{};
         int file_descriptor;
         sockaddr_in address;
+
+#ifdef _WIN32
+        WSADATA wsaData;
+#endif
     };
 
     class CSocket : public Socket
@@ -175,7 +186,7 @@ namespace NET
         void Send(Request &request)
         {
             static size_t static_request_size{sizeof(Request) - (sizeof(Request::auth) + sizeof(Request::body))};
-            send(file_descriptor, request.ToRaw().get(), static_request_size + request.auth_size + request.body_size, 0);
+            send(file_descriptor, reinterpret_cast<char*>(request.ToRaw().get()), static_request_size + request.auth_size + request.body_size, 0);
         }
     };
 
@@ -186,8 +197,14 @@ namespace NET
 
         void Bind()
         {
+
+#ifdef _WIN32 // fuck windows seriously wtf
+            char opt{ 1 };
+            setsockopt(file_descriptor, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+#else 
             int opt{1};
             setsockopt(file_descriptor, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+#endif
 
             if (bind(file_descriptor, (struct sockaddr *)&address, sizeof(address)) == -1)
                 throw std::runtime_error("[NET SSOCKET] Failed to bind socket");
@@ -204,16 +221,25 @@ namespace NET
                                        (socklen_t *)&addrlen))
             {
                 char magic[3];
-                ssize_t count{read(socket, magic, 3)};
+
+#ifdef _WIN32 // fuck windows seriously wtf
+                ssize_t count{read(socket, magic, 3, 0)};
+#else 
+                ssize_t count{ read(socket, magic, 3) };
+#endif
 
                 if (strncmp(magic, "NET", 3) == 0)
                 {
-                    static size_t static_request_size{sizeof(Request) - (sizeof(Request::auth) + sizeof(Request::body))};
+                    static const size_t static_request_size{sizeof(Request) - (sizeof(Request::auth) + sizeof(Request::body))};
 
                     std::uint8_t raw_request[static_request_size];
                     memcpy(raw_request, "NET", 3);
 
-                    count = read(socket, raw_request + 3, static_request_size - 3);
+#ifdef _WIN32 // fuck windows seriously wtf
+                    count = read(socket, reinterpret_cast<char*>(raw_request) + 3, static_request_size - 3, 0);
+#else 
+                    count = read(socket, reinterpret_cast<char*>(raw_request) + 3, static_request_size - 3);
+#endif
 
                     auto p_request{Request::Parse(raw_request)};
 
@@ -221,14 +247,22 @@ namespace NET
                     if (p_request->auth_size != 0)
                     {
                         p_request->auth = std::make_unique<std::uint8_t *>(new std::uint8_t[p_request->auth_size]);
-                        count = read(socket, p_request->auth.get(), p_request->auth_size);
+#ifdef _WIN32 // fuck windows seriously wtf
+                        count = read(socket, reinterpret_cast<char*>(p_request->auth.get()), p_request->auth_size, 0);
+#else 
+                        count = read(socket, reinterpret_cast<char*>(p_request->auth.get()), p_request->auth_size);
+#endif
                     }
 
                     /* Fetch body if exists */
                     if (p_request->body_size != 0)
                     {
                         p_request->body = std::make_unique<std::uint8_t *>(new std::uint8_t[p_request->body_size]);
-                        count = read(socket, p_request->body.get(), p_request->body_size);
+#ifdef _WIN32 // fuck windows seriously wtf
+                        count = read(socket, reinterpret_cast<char*>(p_request->body.get()), p_request->body_size, 0);
+#else 
+                        count = read(socket, reinterpret_cast<char*>(p_request->body.get()), p_request->body_size);
+#endif
                     }
 
                     Handler(p_request);
