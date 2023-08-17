@@ -23,6 +23,9 @@ typedef SSIZE_T ssize_t;
 
 namespace NET
 {
+    constexpr int MAX_AUTH_SIZE{ 1000 };
+    constexpr int MAX_BODY_SIZE{ 10000 };
+
     enum class METHOD : std::uint8_t
     {
         GET,
@@ -223,7 +226,7 @@ namespace NET
                 char magic[3];
 
 #ifdef _WIN32 // fuck windows seriously wtf
-                ssize_t count{read(socket, magic, 3, 0)};
+                ssize_t count{ read(socket, magic, 3, 0) };
 #else 
                 ssize_t count{ read(socket, magic, 3) };
 #endif
@@ -236,9 +239,9 @@ namespace NET
                     memcpy(raw_request, "NET", 3);
 
 #ifdef _WIN32 // fuck windows seriously wtf
-                    count = read(socket, reinterpret_cast<char*>(raw_request) + 3, static_request_size - 3, 0);
-#else 
-                    count = read(socket, reinterpret_cast<char*>(raw_request) + 3, static_request_size - 3);
+                    count = read(socket, reinterpret_cast<char*>(raw_request + 3), static_request_size - 3, 0);
+#else
+                    count = read(socket, reinterpret_cast<char*>(raw_request + 3), static_request_size - 3);
 #endif
 
                     auto p_request{Request::Parse(raw_request)};
@@ -246,6 +249,12 @@ namespace NET
                     /* Fetch auth if exists */
                     if (p_request->auth_size != 0)
                     {
+                        if (p_request->auth_size > MAX_AUTH_SIZE)
+                        {
+                            send(socket, "TOO BIG AUTH", 12, 0);
+                            continue;
+                        }
+
                         p_request->auth = std::make_unique<std::uint8_t *>(new std::uint8_t[p_request->auth_size]);
 #ifdef _WIN32 // fuck windows seriously wtf
                         count = read(socket, reinterpret_cast<char*>(p_request->auth.get()), p_request->auth_size, 0);
@@ -257,6 +266,12 @@ namespace NET
                     /* Fetch body if exists */
                     if (p_request->body_size != 0)
                     {
+                        if (p_request->auth_size > MAX_BODY_SIZE)
+                        {
+                            send(socket, "TOO BIG BODY", 12, 0);
+                            continue;
+                        }
+
                         p_request->body = std::make_unique<std::uint8_t *>(new std::uint8_t[p_request->body_size]);
 #ifdef _WIN32 // fuck windows seriously wtf
                         count = read(socket, reinterpret_cast<char*>(p_request->body.get()), p_request->body_size, 0);
