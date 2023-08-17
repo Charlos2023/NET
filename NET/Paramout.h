@@ -5,7 +5,9 @@
 #include <string>
 #include <stdexcept>
 #include <functional>
+
 #include <cerrno>
+#include <cstring>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -58,13 +60,13 @@ namespace NET
 
             std::shared_ptr<std::uint8_t[]> p_raw(new std::uint8_t[static_request_size]);
 
-            memcpy(p_raw.get(), this, static_request_size + auth_size + body_size);
+            std::memcpy(p_raw.get(), this, static_request_size + auth_size + body_size);
 
             if (auth_size != 0)
-                memcpy(p_raw.get() + static_request_size, auth.get(), auth_size);
+                std::memcpy(p_raw.get() + static_request_size, auth.get(), auth_size);
 
             if (body_size != 0)
-                memcpy(p_raw.get() + static_request_size + auth_size, body.get(), body_size);
+                std::memcpy(p_raw.get() + static_request_size + auth_size, body.get(), body_size);
 
             return std::move(p_raw);
         }
@@ -76,7 +78,7 @@ namespace NET
             std::shared_ptr<Request> p_request(new Request);
 
             // Copy all other than auth & body
-            memcpy(p_request.get(), request, static_request_size);
+            std::memcpy(p_request.get(), request, static_request_size);
 
             return std::move(p_request);
         }
@@ -89,7 +91,7 @@ namespace NET
             auth_size = auth_str.size();
             auth = std::make_unique<std::uint8_t *>(new std::uint8_t[auth_size]);
 
-            memcpy(auth.get(), auth_str.data(), auth_size);
+            std::memcpy(auth.get(), auth_str.data(), auth_size);
         }
 
         void SetBody(std::string body_str)
@@ -100,7 +102,7 @@ namespace NET
             body_size = body_str.size();
             body = std::make_unique<std::uint8_t *>(new std::uint8_t[body_size]);
 
-            memcpy(body.get(), body_str.data(), body_size);
+            std::memcpy(body.get(), body_str.data(), body_size);
         }
     };
 
@@ -236,7 +238,7 @@ namespace NET
                     static const size_t static_request_size{sizeof(Request) - (sizeof(Request::auth) + sizeof(Request::body))};
 
                     std::uint8_t raw_request[static_request_size];
-                    memcpy(raw_request, "NET", 3);
+                    std::memcpy(raw_request, "NET", 3);
 
 #ifdef _WIN32 // fuck windows seriously wtf
                     count = read(socket, reinterpret_cast<char*>(raw_request + 3), static_request_size - 3, 0);

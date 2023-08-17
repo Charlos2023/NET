@@ -44,7 +44,7 @@ namespace NET
         {
             NET::Request request;
             request.method = static_cast<std::uint8_t>(METHOD::GET);
-            memcpy(&request.path, path, 256);
+            std::memcpy(&request.path, path, 256);
 
             socket.Send(request);
         }
@@ -53,7 +53,7 @@ namespace NET
         {
             NET::Request request;
             request.method = static_cast<std::uint8_t>(METHOD::GET);
-            memcpy(&request.path, path, 256);
+            std::memcpy(&request.path, path, 256);
             request.SetBody(body);
 
             socket.Send(request);
