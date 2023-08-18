@@ -1,5 +1,7 @@
 # Files
 
+.DS_Store
+
 *.sln
 *.vcxproj
 *.vcxproj.filters
